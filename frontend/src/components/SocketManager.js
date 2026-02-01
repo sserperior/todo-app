@@ -19,6 +19,7 @@ class SocketManager {
     }
 
     static disconnectAll() {
+        console.log('Disconnecting all WebSocket connections');
         for (const [url, ws] of this.#wsMap.entries()) {
             ws.close(1000, `Websocket connection to ${url} is closed.`);
             this.#wsMap.delete(url);

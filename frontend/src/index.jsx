@@ -22,6 +22,7 @@ root.render(
     </React.StrictMode>
 );
 
-window.addEventListener('beforeunload', () => {
+window.addEventListener('pagehide', () => {
+    console.log('Pagehide event triggered');
     SocketManager.disconnectAll();
 });

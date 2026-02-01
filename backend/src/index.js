@@ -68,8 +68,32 @@ const server = app.listen(PORT, () => {
 
 const wss = new WebSocketServer({ server });
 
-wss.on('connection', socket => {
+wss.on('connection', ws => {
     console.log('Client connected');
+
+    ws.on('message', async message => {
+        // Messages come in as a Buffer. They need to be converted to a string first.
+        const messageString = message.toString();
+        const jsonMessage = JSON.parse(messageString);
+        if (jsonMessage?.api === 'lists') {
+            // Initial connection.Send the list of todos to the client.
+            // owner stubbed to 'you' for now.
+            const todos = await dbConnector.find(DBConstants.dbName, DBConstants.collectionName, { owner: 'you' }, { createdAt: -1 }, { _id: 1, name: 1, owner: 1 });
+            const message = {
+                api: 'lists',
+                result: todos,
+            };
+            ws.send(JSON.stringify(message));
+        }
+    });
+
+    ws.on('close', (code, reason) => {
+        console.log(`Client disconnected: ${code} ${reason}`);
+    });
+
+    ws.on('error', error => {
+        console.error('Client error:', error);
+    });
 });
 
 const shutdownDbConnectors = async () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -7,12 +7,22 @@ import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+
+import { WebSocketContext } from '../providers/WebSocketProvider';
 import SocketManager from './SocketManager';
 
 const HomePage = () => {
+    const ws = useContext(WebSocketContext);
     const [todoLists, setTodoLists] = useState([]);
     const [newTodoListName, setNewTodoListName] = useState('');
     const navigate = useNavigate();
+
+    const refreshTodoLists = () => {
+        const message = {
+            api: 'lists',
+        };
+        ws.send(JSON.stringify(message));
+    };
 
     const createNewTodoList = async () => {
         if (newTodoListName.trim() === '') {
@@ -30,19 +40,38 @@ const HomePage = () => {
         }
         setNewTodoListName('');
         refreshTodoLists();
-    }
-
-    const refreshTodoLists = async () => {
-        const res = await fetch('/api/lists');
-        const data = await res.json();
-        setTodoLists(data);
     };
 
     useEffect(() => {
-        const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-        SocketManager.connect(WS_URL);
-        refreshTodoLists();
-    }, []);
+        if (!ws) {
+            return;
+        }
+
+        const messageHandler = event => {
+            const message = JSON.parse(event.data);
+            if (message?.api === 'lists') {
+                setTodoLists(message.result);
+            }
+        };
+
+        ws.addEventListener('message', messageHandler);
+
+        if (ws.readyState === WebSocket.OPEN) {
+            // Socket might already be open - for example if navigate back from /todo-list
+            refreshTodoLists();
+        } else {
+            ws.addEventListener(
+                'open',
+                refreshTodoLists,
+                { once: true }
+            );
+        }
+
+        return () => {
+            console.log('Removing event listener loadTodoLists');
+            ws.removeEventListener('message', messageHandler);
+        };
+    }, [ws]);
 
     const handleKeyUp = async e => {
         if (e.key === 'Enter') {
