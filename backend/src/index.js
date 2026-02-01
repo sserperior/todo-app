@@ -1,6 +1,7 @@
 import path from 'path';
 import express from 'express';
 import dotenv from 'dotenv';
+import { WebSocketServer } from 'ws';
 import DBConnector from './db.js';
 
 dotenv.config('../.env');
@@ -65,6 +66,12 @@ const server = app.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
 
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', socket => {
+    console.log('Client connected');
+});
+
 const shutdownDbConnectors = async () => {
     if (dbConnector) {
         await dbConnector.disconnect();
@@ -72,10 +79,14 @@ const shutdownDbConnectors = async () => {
     }
 };
 
-const shutdownServer = exitCode => {
-    server.close(() => {
-        console.log('Server shut down successful.');
-        process.exit(exitCode);
+const shutdownServers = async exitCode => {
+    await shutdownDbConnectors();
+    wss.close(() => {
+        console.log('WebSocket server shutdown successful.');
+        server.close(() => {
+            console.log('Server shut down successful.');
+            process.exit(exitCode);
+        });
     });
 
     // Force kill after 60 seconds
@@ -86,17 +97,14 @@ const shutdownServer = exitCode => {
 };
 
 process.on('SIGINT', async () => {
-    await shutdownDbConnectors();
-    shutdownServer(1);
+    await shutdownServers(1);
 });
 
 process.on('SIGTERM', async () => {
-    await shutdownDbConnectors();
-    shutdownServer(1);
+    await shutdownServers(1);
 });
 
 process.on('uncaughtException', async err => {
     console.error('Uncaught Exception:', err);
-    await shutdownDbConnectors();
-    shutdownServer(1);
+    await shutdownServers(1);
 });

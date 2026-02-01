@@ -10,6 +10,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
 import App from './App';
+import SocketManager from './components/SocketManager';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -20,3 +21,7 @@ root.render(
         </ThemeProvider>
     </React.StrictMode>
 );
+
+window.addEventListener('beforeunload', () => {
+    SocketManager.disconnectAll();
+});

@@ -7,6 +7,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import SocketManager from './SocketManager';
 
 const HomePage = () => {
     const [todoLists, setTodoLists] = useState([]);
@@ -38,6 +39,8 @@ const HomePage = () => {
     };
 
     useEffect(() => {
+        const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+        SocketManager.connect(WS_URL);
         refreshTodoLists();
     }, []);
 
