@@ -1,0 +1,20 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "Backend workspace",
+    "main": "src/index.js",
+    "scripts": {
+        "dev": "node --watch-path=./src src/index.js",
+        "start": "node src/index.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "dotenv": "17.2.3",
+        "express": "5.2.1",
+        "mongodb": "7.0.0",
+        "nanoid": "5.1.6"
+    }
+}

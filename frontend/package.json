@@ -1,0 +1,30 @@
+{
+    "name": "frontend",
+    "version": "1.0.0",
+    "description": "Frontend workspace",
+    "main": "index.js",
+    "scripts": {
+        "dev": "rsbuild dev",
+        "build": "rsbuild build",
+        "preview": "rsbuild preview",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "@emotion/react": "11.14.0",
+        "@emotion/styled": "11.14.1",
+        "@fontsource/roboto": "5.2.9",
+        "@mui/material": "7.3.7",
+        "nanoid": "5.1.6",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
+        "react-router-dom": "^7.13.0"
+    },
+    "devDependencies": {
+        "@rsbuild/core": "1.7.2",
+        "@rsbuild/plugin-react": "1.4.3"
+    }
+}
