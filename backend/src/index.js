@@ -1,8 +1,10 @@
 import path from 'path';
 import express from 'express';
 import dotenv from 'dotenv';
+import { nanoid } from 'nanoid';
 import { WebSocketServer } from 'ws';
 import DBConnector from './db.js';
+import { messageHandler } from './messageHandler.js';
 
 dotenv.config('../.env');
 
@@ -16,42 +18,10 @@ await Promise.all([
     dbConnector.createIndex(DBConstants.dbName, DBConstants.collectionName, 'name', { name: 1 }, { unique: true }),
     dbConnector.createIndex(DBConstants.dbName, DBConstants.collectionName, 'owner', { owner: 1 }),
     dbConnector.createIndex(DBConstants.dbName, DBConstants.collectionName, 'name_owner', { name: 1, owner: 1 }),
+    dbConnector.createIndex(DBConstants.dbName, DBConstants.collectionName, 'items_id', { 'items.id': 1 }, { unique: true }),
 ]);
 
 const app = express();
-
-app.use(express.json());
-
-app.get('/api/lists', async (req, res) => {
-    const owner = 'you'; // Stub for now
-    const todos = await dbConnector.find(DBConstants.dbName, DBConstants.collectionName, { owner }, { createdAt: -1 }, { _id: 1, name: 1, owner: 1 });
-    res.json(todos);
-});
-
-app.get('/api/lists/:id', async (req, res) => {
-    const { id } = req.params;
-    const todoList = await dbConnector.findById(DBConstants.dbName, DBConstants.collectionName, id, { _id: 1, name: 1, items: 1 });
-    res.json(todoList);
-});
-
-app.post('/api/addlist', async (req, res) => {
-    const { name } = req.body;
-    const todoList = {
-        name,
-        owner: 'you', // stub for now
-        items: [],
-        createdAt: new Date(),
-    };
-    const { insertedId } = await dbConnector.insertOne(DBConstants.dbName, DBConstants.collectionName, todoList);
-    res.status(201).json({ id: insertedId });
-});
-
-app.patch('/api/todolist/:id', async (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
-    await dbConnector.updateOne(DBConstants.dbName, DBConstants.collectionName, { _id: id }, { $set: { name } });
-    res.status(200).send();
-});
 
 const distPath = path.resolve(import.meta.dirname, '..', '..', 'frontend', 'dist');
 console.log('distPath', distPath);
@@ -71,21 +41,7 @@ const wss = new WebSocketServer({ server });
 wss.on('connection', ws => {
     console.log('Client connected');
 
-    ws.on('message', async message => {
-        // Messages come in as a Buffer. They need to be converted to a string first.
-        const messageString = message.toString();
-        const jsonMessage = JSON.parse(messageString);
-        if (jsonMessage?.api === 'lists') {
-            // Initial connection.Send the list of todos to the client.
-            // owner stubbed to 'you' for now.
-            const todos = await dbConnector.find(DBConstants.dbName, DBConstants.collectionName, { owner: 'you' }, { createdAt: -1 }, { _id: 1, name: 1, owner: 1 });
-            const message = {
-                api: 'lists',
-                result: todos,
-            };
-            ws.send(JSON.stringify(message));
-        }
-    });
+    ws.on('message', messageHandler(ws, DBConstants, dbConnector));
 
     ws.on('close', (code, reason) => {
         console.log(`Client disconnected: ${code} ${reason}`);

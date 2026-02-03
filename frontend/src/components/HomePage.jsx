@@ -9,7 +9,6 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 
 import { WebSocketContext } from '../providers/WebSocketProvider';
-import SocketManager from './SocketManager';
 
 const HomePage = () => {
     const ws = useContext(WebSocketContext);
@@ -28,18 +27,12 @@ const HomePage = () => {
         if (newTodoListName.trim() === '') {
             return;
         }
-        const result = await fetch('/api/addlist', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name: newTodoListName }),
-        });
-        if (!result.ok) {
-            throw new Error('Failed to create todo list');
-        }
-        setNewTodoListName('');
-        refreshTodoLists();
+
+        const message = {
+            api: 'addlist',
+            name: newTodoListName,
+        };
+        ws.send(JSON.stringify(message));
     };
 
     useEffect(() => {
@@ -51,6 +44,9 @@ const HomePage = () => {
             const message = JSON.parse(event.data);
             if (message?.api === 'lists') {
                 setTodoLists(message.result);
+            } else if (message?.api === 'addlist') {
+                setNewTodoListName('');
+                refreshTodoLists();
             }
         };
 
@@ -68,7 +64,7 @@ const HomePage = () => {
         }
 
         return () => {
-            console.log('Removing event listener loadTodoLists');
+            console.log('Removing event listener for lists.');
             ws.removeEventListener('message', messageHandler);
         };
     }, [ws]);

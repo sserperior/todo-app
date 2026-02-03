@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { nanoid } from 'nanoid';
+import React, { useState, useContext, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -11,7 +10,10 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 
+import { WebSocketContext } from '../providers/WebSocketProvider';
+
 const TodoList = () => {
+    const ws = useContext(WebSocketContext);
     const location = useLocation();
     const navigate = useNavigate();
     const listId = location.state?._id;
@@ -20,30 +22,59 @@ const TodoList = () => {
     const [inputValue, setInputValue] = useState('');
     const [todos, setTodos] = useState([]);
 
-    useEffect(() => {
-        const fetchTodoList = async () => {
-            const res = await fetch(`/api/lists/${listId}`);
-            const data = await res.json();
-            setTodos(data.items);
+    const refreshTodos = () => {
+        const message = {
+            api: 'list',
+            id: listId,
         };
-        if (listId != null) {
-            fetchTodoList();
+        ws.send(JSON.stringify(message));
+    };
+
+    useEffect(() => {
+        if (!ws || listId == null) {
+            return;
         }
-    }, []);
+
+        const messageHandler = event => {
+            const message = JSON.parse(event.data);
+            if (message?.api === 'list' && message?.result?._id === listId) {
+                setTodos(message.result.items);
+            } else if (message?.api === 'addTodoItem') {
+                setTodos(message.result.todos);
+                setInputValue('');
+            } else if (message?.api === 'toggleTodoItemChecked' || message?.api === 'markTodoItemsDone' || message?.api === 'deleteTodoItems') {
+                setTodos(message.result.todos);
+            }
+        };
+
+        ws.addEventListener('message', messageHandler);
+
+        if (ws.readyState === WebSocket.OPEN) {
+            // Socket might already be open - for example if navigate back from /todo-list
+            refreshTodos();
+        } else {
+            ws.addEventListener(
+                'open',
+                refreshTodos,
+                { once: true }
+            );
+        }
+
+        return () => {
+            console.log('Removing event listener for list[:id].');
+            ws.removeEventListener('message', messageHandler);
+        };
+
+    }, [ws]);
 
     const handleAddTodo = () => {
         if (inputValue.trim() !== '') {
-            // Call backend API to update
-            setTodos([
-                ...todos,
-                {
-                    id: nanoid(),
-                    text: inputValue,
-                    checked: false,
-                    done: false,
-                },
-            ]);
-            setInputValue('');
+            const message = {
+                api: 'addTodoItem',
+                text: inputValue,
+                todoListId: listId,
+            };
+            ws.send(JSON.stringify(message));
         }
     };
 
@@ -53,31 +84,35 @@ const TodoList = () => {
         }
     };
 
-    const handleToggle = id => {
-        // Call backend API to update
-        setTodos(
-            todos.map((todo) =>
-                todo.id === id && !todo.done
-                    ? { ...todo, checked: !todo.checked }
-                    : todo
-            )
-        );
+    const handleToggle = todo => {
+        const { id, text, checked, done } = todo;
+        const message = {
+            api: 'toggleTodoItemChecked',
+            todoListId: listId,
+            id,
+            checked: !checked,
+        };
+        ws.send(JSON.stringify(message));
     };
 
     const handleMarkDone = () => {
-        // Call backend API to update
-        setTodos(
-            todos.map((todo) =>
-                todo.checked ? { ...todo, done: true } : todo
-            )
-        );
+        const checkedTodoIds = todos.filter(todo => todo.checked).map(todo => todo.id);
+        const message = {
+            api: 'markTodoItemsDone',
+            todoListId: listId,
+            checkedTodoIds,
+        };
+        ws.send(JSON.stringify(message));
     };
 
     const handleDelete = () => {
-        // Call backend API to update
-        setTodos(
-            todos.filter(todo => !todo.checked || todo.done)
-        )
+        const checkedTodoIds = todos.filter(todo => todo.checked && !todo.done).map(todo => todo.id);
+        const message = {
+            api: 'deleteTodoItems',
+            todoListId: listId,
+            checkedTodoIds,
+        };
+        ws.send(JSON.stringify(message));
     };
 
     const hasSelectedItems = todos.some(todo => todo.checked && !todo.done);
@@ -125,7 +160,7 @@ const TodoList = () => {
                         <ListItemButton
                             key={todo.id}
                             dense
-                            onClick={() => handleToggle(todo.id)}
+                            onClick={() => handleToggle(todo)}
                         >
                             <ListItemIcon>
                                 <Checkbox
@@ -160,7 +195,7 @@ const TodoList = () => {
                     Delete
                 </Button>
             </Box>
-        </>        
+        </>
     );
 
     return (
@@ -169,7 +204,7 @@ const TodoList = () => {
                 getHeaderSection()
             }
             {
-                listId != null ? getEditableSection() : null
+                (listId != null && ws != null) ? getEditableSection() : null
             }
         </Box>
     );
